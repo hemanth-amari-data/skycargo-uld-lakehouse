@@ -1,0 +1,9 @@
+[project]
+name = "skycargo-uld-lakehouse"
+version = "0.2.0"
+description = "End-to-end Databricks lakehouse for air cargo ULD tracking"
+requires-python = ">=3.10"
+
+[tool.pytest.ini_options]
+pythonpath = ["."]
+testpaths = ["tests"]
