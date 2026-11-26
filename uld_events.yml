@@ -1,0 +1,91 @@
+dataset: uld_events
+version: 1.0.0
+description: >
+  Scan events for every ULD movement: loaded, departed, arrived, unloaded,
+  damage reported, repair steps and missing reports. One row per scan.
+owner:
+  team: ground_handling_integration
+  contact: ground.integration@skycargo.example
+domain: operations
+
+source:
+  system: ULD scan platform (GHA portal, airline API, mobile scanners)
+  path: uld_events
+  format: json
+  file_pattern: "*.json"
+
+ingestion:
+  method: auto_loader
+  mode: append
+
+target:
+  schema: bronze
+  table: uld_events
+
+sla:
+  freshness_minutes: 60
+  min_rows_per_day: 1000
+
+tags:
+  data_class: operational
+
+primary_key: [event_id]
+
+columns:
+  - name: event_id
+    type: string
+    nullable: false
+    description: Unique id of the scan event (UUID).
+  - name: uld_id
+    type: string
+    nullable: false
+    description: IATA style ULD id, for example AKE12345FA (type + serial + owner airline).
+  - name: event_type
+    type: string
+    nullable: false
+    description: What happened to the ULD.
+    allowed_values: [LOADED, DEPARTED, ARRIVED, UNLOADED, DAMAGE_REPORTED, SENT_FOR_REPAIR,
+                     RETURNED_TO_SERVICE, INSPECTION_PASSED, REPORTED_MISSING]
+  - name: airport_code
+    type: string
+    nullable: false
+    description: IATA airport code where the event happened.
+  - name: flight_id
+    type: string
+    nullable: true
+    description: Flight the ULD was on. Empty for ground events like repairs.
+  - name: event_ts
+    type: timestamp
+    nullable: false
+    description: When the event happened, in UTC.
+  - name: source_system
+    type: string
+    nullable: false
+    description: System that sent the scan.
+    allowed_values: [GHA_PORTAL, AIRLINE_API, MOBILE_SCAN]
+  - name: gross_weight_kg
+    type: double
+    nullable: true
+    description: Gross weight of the loaded ULD in kg. Only on LOADED and UNLOADED events.
+  - name: repair_id
+    type: string
+    nullable: true
+    description: Repair case id. Only on DAMAGE_REPORTED events.
+
+# Enforced in the silver layer (Phase 3)
+quality_rules:
+  - name: event_id_present
+    expression: event_id IS NOT NULL
+    action: drop
+  - name: uld_id_present
+    expression: uld_id IS NOT NULL
+    action: quarantine
+  - name: valid_airport_code
+    expression: airport_code RLIKE '^[A-Z]{3}$' AND airport_code <> 'XXX'
+    action: quarantine
+  - name: event_not_in_future
+    expression: event_ts <= current_timestamp() + INTERVAL 1 DAY
+    action: quarantine
+  - name: valid_event_type
+    expression: event_type IN ('LOADED','DEPARTED','ARRIVED','UNLOADED','DAMAGE_REPORTED','SENT_FOR_REPAIR','RETURNED_TO_SERVICE','INSPECTION_PASSED','REPORTED_MISSING')
+    action: quarantine

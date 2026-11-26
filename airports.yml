@@ -1,0 +1,70 @@
+dataset: airports
+version: 1.0.0
+description: >
+  Reference list of airports in the SkyCargo network with location and hub flag.
+owner:
+  team: data_platform
+  contact: data.platform@skycargo.example
+domain: reference
+
+source:
+  system: Reference data
+  path: reference/airports
+  format: csv
+  file_pattern: "*.csv"
+
+ingestion:
+  method: copy_into
+  mode: append
+
+target:
+  schema: bronze
+  table: airports
+
+sla:
+  freshness_minutes: 43200
+  min_rows_per_day: 0
+
+tags:
+  data_class: reference
+
+primary_key: [airport_code]
+
+columns:
+  - name: airport_code
+    type: string
+    nullable: false
+    description: IATA airport code.
+  - name: airport_name
+    type: string
+    nullable: false
+    description: Airport name.
+  - name: city
+    type: string
+    nullable: false
+    description: City served by the airport.
+  - name: country_code
+    type: string
+    nullable: false
+    description: ISO country code.
+  - name: region
+    type: string
+    nullable: false
+    description: Business region, for example Middle East.
+  - name: latitude
+    type: double
+    nullable: false
+    description: Latitude in decimal degrees.
+  - name: longitude
+    type: double
+    nullable: false
+    description: Longitude in decimal degrees.
+  - name: is_hub
+    type: boolean
+    nullable: false
+    description: True if an airline in the network uses this airport as its hub.
+
+quality_rules:
+  - name: airport_code_format
+    expression: airport_code RLIKE '^[A-Z]{3}$'
+    action: fail

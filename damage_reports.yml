@@ -1,0 +1,56 @@
+dataset: damage_reports
+version: 1.0.0
+description: >
+  Free text damage reports written by ground staff. One text file per repair case.
+  Used later for AI Functions, Vector Search and the RAG chatbot.
+owner:
+  team: ground_handling_integration
+  contact: ground.integration@skycargo.example
+domain: maintenance
+
+source:
+  system: Ground handling damage reporting
+  path: docs/damage_reports
+  format: binaryFile
+  file_pattern: "*.txt"
+  text_column: report_text
+
+ingestion:
+  method: auto_loader
+  mode: append
+
+target:
+  schema: bronze
+  table: damage_reports
+
+sla:
+  freshness_minutes: 1440
+  min_rows_per_day: 0
+
+tags:
+  data_class: unstructured
+
+primary_key: [path]
+
+columns:
+  - name: path
+    type: string
+    nullable: false
+    description: Full path of the report file.
+  - name: modificationTime
+    type: timestamp
+    nullable: false
+    description: When the file was last changed.
+  - name: length
+    type: bigint
+    nullable: false
+    description: File size in bytes.
+  - name: report_text
+    type: string
+    nullable: false
+    description: Full text of the damage report.
+
+quality_rules:
+  - name: report_not_empty
+    expression: length(report_text) > 0
+    action: drop

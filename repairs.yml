@@ -1,0 +1,100 @@
+dataset: repairs
+version: 1.0.0
+description: >
+  Change feed (CDC) from the ULD repair system. Each row is an INSERT,
+  UPDATE or DELETE of a repair case. Newer changes have a higher sequence_num.
+owner:
+  team: uld_maintenance
+  contact: uld.maintenance@skycargo.example
+domain: maintenance
+
+source:
+  system: ULD repair shop system
+  path: repairs
+  format: json
+  file_pattern: "*.json"
+
+ingestion:
+  method: auto_loader
+  mode: append
+
+target:
+  schema: bronze
+  table: repairs
+
+sla:
+  freshness_minutes: 1440
+  min_rows_per_day: 1
+
+tags:
+  data_class: operational
+
+primary_key: [repair_id, sequence_num]
+
+# Used in Phase 3 to build the current state of each repair (AUTO CDC, SCD Type 1)
+cdc:
+  keys: [repair_id]
+  sequence_by: sequence_num
+  operation_column: operation
+  delete_when: operation = 'DELETE'
+  scd_type: 1
+
+columns:
+  - name: repair_id
+    type: string
+    nullable: false
+    description: Repair case id, for example RPR-000123.
+  - name: uld_id
+    type: string
+    nullable: false
+    description: ULD being repaired.
+  - name: operation
+    type: string
+    nullable: false
+    description: Type of change in the source system.
+    allowed_values: [INSERT, UPDATE, DELETE]
+  - name: status
+    type: string
+    nullable: false
+    description: Repair status after this change.
+    allowed_values: [OPEN, IN_REPAIR, COMPLETED, CANCELLED]
+  - name: damage_type
+    type: string
+    nullable: false
+    description: Kind of damage found, for example bent base rail.
+  - name: severity
+    type: string
+    nullable: false
+    description: How serious the damage is.
+    allowed_values: [MINOR, MAJOR, CRITICAL]
+  - name: repair_airport
+    type: string
+    nullable: false
+    description: Airport where the ULD is repaired.
+  - name: estimated_cost_usd
+    type: double
+    nullable: false
+    description: Estimated repair cost in US dollars.
+  - name: actual_cost_usd
+    type: double
+    nullable: true
+    description: Final repair cost in US dollars. Only set when the repair is completed.
+  - name: sequence_num
+    type: bigint
+    nullable: false
+    description: Ever increasing change number. Use it to order changes.
+  - name: change_ts
+    type: timestamp
+    nullable: false
+    description: When the change happened in the source system, in UTC.
+
+quality_rules:
+  - name: repair_id_present
+    expression: repair_id IS NOT NULL
+    action: drop
+  - name: valid_operation
+    expression: operation IN ('INSERT','UPDATE','DELETE')
+    action: quarantine
+  - name: cost_not_negative
+    expression: estimated_cost_usd >= 0 AND (actual_cost_usd IS NULL OR actual_cost_usd >= 0)
+    action: quarantine

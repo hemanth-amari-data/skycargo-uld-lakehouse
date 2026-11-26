@@ -1,0 +1,83 @@
+dataset: airlines
+version: 1.0.0
+description: >
+  Airline customer master data. A new row arrives every time an airline
+  changes, so the full history can be kept (SCD Type 2).
+owner:
+  team: commercial
+  contact: commercial.data@skycargo.example
+domain: customer
+
+source:
+  system: Customer master (CRM)
+  path: airlines
+  format: json
+  file_pattern: "*.json"
+
+ingestion:
+  method: auto_loader
+  mode: append
+
+target:
+  schema: bronze
+  table: airlines
+
+sla:
+  freshness_minutes: 1440
+  min_rows_per_day: 0
+
+tags:
+  data_class: customer
+  contains_pii: "true"
+
+primary_key: [airline_code, updated_at]
+
+# Used in Phase 3 to keep the full history of each airline (AUTO CDC, SCD Type 2)
+cdc:
+  keys: [airline_code]
+  sequence_by: updated_at
+  scd_type: 2
+
+columns:
+  - name: airline_code
+    type: string
+    nullable: false
+    description: Two letter airline code.
+  - name: airline_name
+    type: string
+    nullable: false
+    description: Airline name. All names are fictional.
+  - name: country_code
+    type: string
+    nullable: false
+    description: Country where the airline is based.
+  - name: hub_airport
+    type: string
+    nullable: false
+    description: Main hub airport of the airline.
+  - name: contact_email
+    type: string
+    nullable: false
+    description: Cargo operations contact email.
+    pii: email
+  - name: service_tier
+    type: string
+    nullable: false
+    description: Commercial service level of the customer.
+    allowed_values: [GOLD, SILVER, BRONZE]
+  - name: is_active
+    type: boolean
+    nullable: false
+    description: True if the airline is an active customer.
+  - name: updated_at
+    type: timestamp
+    nullable: false
+    description: When this version of the airline record was created, in UTC.
+
+quality_rules:
+  - name: airline_code_present
+    expression: airline_code IS NOT NULL
+    action: drop
+  - name: valid_email
+    expression: contact_email RLIKE '^[^@]+@[^@]+$'
+    action: warn

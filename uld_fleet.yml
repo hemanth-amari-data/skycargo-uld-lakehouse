@@ -1,0 +1,79 @@
+dataset: uld_fleet
+version: 1.0.0
+description: >
+  Register of every ULD in the fleet with type, owner, build date and weight limits.
+owner:
+  team: uld_asset_management
+  contact: uld.assets@skycargo.example
+domain: assets
+
+source:
+  system: ULD fleet register
+  path: reference/uld_fleet
+  format: csv
+  file_pattern: "*.csv"
+
+ingestion:
+  method: copy_into
+  mode: append
+
+target:
+  schema: bronze
+  table: uld_fleet
+
+sla:
+  freshness_minutes: 43200
+  min_rows_per_day: 0
+
+tags:
+  data_class: reference
+
+primary_key: [uld_id]
+
+columns:
+  - name: uld_id
+    type: string
+    nullable: false
+    description: IATA style ULD id (type + serial + owner airline).
+  - name: uld_type
+    type: string
+    nullable: false
+    description: IATA ULD type code.
+    allowed_values: [AKE, AKH, PMC, PAG, RKN]
+  - name: uld_description
+    type: string
+    nullable: false
+    description: Plain description of the ULD type.
+  - name: owner_airline
+    type: string
+    nullable: false
+    description: Airline that owns the ULD.
+  - name: serial_number
+    type: int
+    nullable: false
+    description: Serial number part of the ULD id.
+  - name: manufacture_date
+    type: date
+    nullable: false
+    description: Date the ULD was built.
+  - name: tare_weight_kg
+    type: int
+    nullable: false
+    description: Empty weight of the ULD in kg.
+  - name: max_gross_weight_kg
+    type: int
+    nullable: false
+    description: Maximum allowed weight including cargo, in kg.
+  - name: is_temperature_controlled
+    type: boolean
+    nullable: false
+    description: True for active cool containers.
+  - name: home_airport
+    type: string
+    nullable: false
+    description: Home base of the ULD, usually the owner's hub.
+
+quality_rules:
+  - name: uld_id_present
+    expression: uld_id IS NOT NULL
+    action: fail

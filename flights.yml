@@ -1,0 +1,86 @@
+dataset: flights
+version: 1.0.0
+description: >
+  Daily cargo flight schedule with actual arrival time and status.
+  One row per flight leg. One CSV file per day.
+owner:
+  team: airline_network_planning
+  contact: network.planning@skycargo.example
+domain: network
+
+source:
+  system: Airline flight schedule system
+  path: flights
+  format: csv
+  file_pattern: "*.csv"
+
+ingestion:
+  method: copy_into
+  mode: append
+
+target:
+  schema: bronze
+  table: flights
+
+sla:
+  freshness_minutes: 1440
+  min_rows_per_day: 50
+
+tags:
+  data_class: operational
+
+primary_key: [flight_id]
+
+columns:
+  - name: flight_id
+    type: string
+    nullable: false
+    description: Unique flight leg id, flight number plus date, for example FA101-20261001.
+  - name: airline_code
+    type: string
+    nullable: false
+    description: Two letter code of the operating airline.
+  - name: flight_number
+    type: string
+    nullable: false
+    description: Commercial flight number.
+  - name: origin
+    type: string
+    nullable: false
+    description: Departure airport code.
+  - name: destination
+    type: string
+    nullable: false
+    description: Arrival airport code.
+  - name: aircraft_type
+    type: string
+    nullable: false
+    description: Freighter aircraft type, for example B777F.
+  - name: scheduled_departure_utc
+    type: timestamp
+    nullable: false
+    description: Planned departure time in UTC.
+  - name: scheduled_arrival_utc
+    type: timestamp
+    nullable: false
+    description: Planned arrival time in UTC.
+  - name: actual_arrival_utc
+    type: timestamp
+    nullable: true
+    description: Actual arrival time in UTC. Empty when the flight was cancelled.
+  - name: flight_status
+    type: string
+    nullable: false
+    description: Final status of the flight.
+    allowed_values: [ARRIVED, ARRIVED_LATE, CANCELLED]
+
+quality_rules:
+  - name: flight_id_present
+    expression: flight_id IS NOT NULL
+    action: drop
+  - name: origin_not_destination
+    expression: origin <> destination
+    action: quarantine
+  - name: arrival_after_departure
+    expression: scheduled_arrival_utc > scheduled_departure_utc
+    action: quarantine
